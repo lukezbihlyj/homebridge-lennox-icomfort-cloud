@@ -26,7 +26,7 @@ export class Thermostat {
   private zone: LennoxZone;
 
   // Debounce: ignore updates for a short time after sending a command
-  private lastCommandTime: number = 0;
+  private lastCommandTime = 0;
   private readonly COMMAND_DEBOUNCE_MS = 5000; // 5 seconds
 
   constructor(
@@ -61,7 +61,7 @@ export class Thermostat {
    */
   private get displayName(): string {
     let baseName: string;
-    
+
     if (this.system.numberOfZones > 1) {
       baseName = `${this.system.name} - ${this.zone.name}`;
     } else {
@@ -282,7 +282,7 @@ export class Thermostat {
     try {
       // Mark command time for debounce
       this.lastCommandTime = Date.now();
-      
+
       await this.platform.client.setHVACMode(this.zone, mode);
     } catch (error) {
       this.platform.log.error(`Failed to set HVAC mode: ${error}`);
@@ -398,7 +398,7 @@ export class Thermostat {
 
       // Mark command time for debounce
       this.lastCommandTime = Date.now();
-      
+
       await this.platform.client.setTemperature(this.zone, { hsp: tempF, csp });
     } catch (error) {
       this.platform.log.error(`Failed to set heating threshold: ${error}`);
