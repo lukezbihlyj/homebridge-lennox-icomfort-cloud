@@ -10,14 +10,14 @@ A [Homebridge](https://homebridge.io) plugin for Lennox iComfort smart thermosta
 
 ## Supported Devices
 
-### Lennox iComfort S30/S40/E30/M30 (Newer Models)
-- Uses **lennoxicomfort.com** for cloud connectivity
+### Lennox iComfort S30/S40/E30/M30
+- Uses **lennoxicomfort.com** for connectivity
 - Multi-zone support
-- Emergency heat control (dual-fuel systems)
+- Emergency heat control for dual-fuel systems
 
 ### Lennox iComfort Wifi (Older Models)
-- Uses **myicomfort.com** for cloud connectivity
-- Multi-zone support (if your system has multiple zones)
+- Uses **myicomfort.com** for connectivity
+- Multi-zone support
 
 ## Features
 
@@ -38,7 +38,7 @@ A [Homebridge](https://homebridge.io) plugin for Lennox iComfort smart thermosta
 
 1. Search for `lennox-icomfort-modern` in the Homebridge UI plugin search
 2. Click Install
-3. Select your device type (Wifi or S30/S40/E30/M30)
+3. Select your device type (S30/S40/E30/M30 or Wifi)
 4. Configure with your iComfort account credentials
 
 ### Via Command Line
