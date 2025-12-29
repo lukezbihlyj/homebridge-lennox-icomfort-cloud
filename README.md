@@ -90,9 +90,9 @@ Add the platform to your Homebridge `config.json`:
 | `username` | Yes | - | Your iComfort account email address |
 | `password` | Yes | - | Your iComfort account password |
 | `name` | No | "Lennox iComfort" | Platform name shown in logs |
-| `pollInterval` | No | 10 (s30) / 30 (wifi) | How often to poll for updates (seconds) |
+| `pollInterval` | No | 10 | How often to poll for updates (seconds) |
 | `temperatureUnit` | No | "auto" | Temperature display: "auto", "C", or "F" |
-| `enableEmergencyHeat` | No | false | (S30 only) Enable emergency heat switch for dual-fuel systems |
+| `enableEmergencyHeat` | No | false | (S30/S40/E30/M30 only) Enable emergency heat switch for dual-fuel systems |
 
 ## Running as a Child Bridge
 
