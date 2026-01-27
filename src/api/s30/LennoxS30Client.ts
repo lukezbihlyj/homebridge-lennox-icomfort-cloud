@@ -618,13 +618,19 @@ export class LennoxS30Client {
 
   /**
    * Set HVAC mode for a zone
-   * This sends to the schedule (manual mode) as required by the Lennox API
+   * If not in manual mode, switches the zone to manual mode first
    */
   async setHVACMode(zone: LennoxZone, mode: string): Promise<void> {
     this.log.info(`Setting HVAC mode for zone ${zone.name} to ${mode}`);
 
+    // If not in manual mode, switch to manual mode first
+    if (!zone.isZoneManualMode()) {
+      this.log.debug(`Zone is on schedule ${zone.scheduleId}, switching to manual mode`);
+      await this.setZoneSchedule(zone, zone.getManualModeScheduleId());
+    }
+
     // Use manual mode schedule ID
-    const scheduleId = this.getManualModeScheduleId(zone);
+    const scheduleId = zone.getManualModeScheduleId();
 
     // The Lennox API expects mode changes to be sent to a schedule
     const data = {
@@ -645,6 +651,24 @@ export class LennoxS30Client {
   }
 
   /**
+   * Set which schedule a zone follows
+   */
+  async setZoneSchedule(zone: LennoxZone, scheduleId: number): Promise<void> {
+    this.log.debug(`Setting zone ${zone.name} to schedule ${scheduleId}`);
+
+    const data = {
+      zones: [{
+        id: zone.id,
+        config: {
+          scheduleId: scheduleId,
+        },
+      }],
+    };
+
+    await this.publish(zone.systemId, data as unknown as MessageData);
+  }
+
+  /**
    * Convert Fahrenheit to Celsius
    */
   private fToC(f: number): number {
@@ -652,16 +676,8 @@ export class LennoxS30Client {
   }
 
   /**
-   * Get the manual mode schedule ID for a zone
-   * Manual mode schedules start at 16, so zone 0 = schedule 16, zone 1 = schedule 17, etc.
-   */
-  private getManualModeScheduleId(zone: LennoxZone): number {
-    return 16 + zone.id;
-  }
-
-  /**
    * Set temperature setpoints for a zone
-   * This sends to the schedule (manual mode) as required by the Lennox API
+   * Handles different zone modes: manual, override, or following a schedule
    */
   async setTemperature(
     zone: LennoxZone,
@@ -670,32 +686,109 @@ export class LennoxS30Client {
       csp?: number;
     },
   ): Promise<void> {
-    this.log.info(`Setting temperature for zone ${zone.name}:`, options);
+    this.log.debug(`Setting temperature for zone ${zone.name}: hsp=${options.hsp}, csp=${options.csp}, scheduleId=${zone.scheduleId}`);
 
     // Build the period data with both F and C values
-    const period: Record<string, unknown> = {};
+    const hsp = options.hsp !== undefined ? Math.round(options.hsp) : zone.hsp;
+    const hspC = options.hsp !== undefined ? this.fToC(options.hsp) : zone.hspC;
+    const csp = options.csp !== undefined ? Math.round(options.csp) : zone.csp;
+    const cspC = options.csp !== undefined ? this.fToC(options.csp) : zone.cspC;
 
-    if (options.hsp !== undefined) {
-      period.hsp = Math.round(options.hsp);
-      period.hspC = this.fToC(options.hsp);
+    // If zone is in manual mode, just update the manual schedule
+    if (zone.isZoneManualMode()) {
+      this.log.debug(`Zone is in manual mode, updating schedule ${zone.getManualModeScheduleId()}`);
+      await this.updateScheduleSetpoints(zone.systemId, zone.getManualModeScheduleId(), { hsp, hspC, csp, cspC });
+      return;
     }
-    if (options.csp !== undefined) {
-      period.csp = Math.round(options.csp);
-      period.cspC = this.fToC(options.csp);
+
+    // If zone is already in override mode, update the override schedule
+    if (zone.isZoneOverride()) {
+      this.log.debug(`Zone is in override mode, updating schedule ${zone.getOverrideScheduleId()}`);
+      await this.updateScheduleSetpoints(zone.systemId, zone.getOverrideScheduleId(), { hsp, hspC, csp, cspC });
+      return;
     }
 
-    // Use manual mode schedule ID
-    const scheduleId = this.getManualModeScheduleId(zone);
+    // Zone is following a program - need to create an override
+    this.log.info(`Zone ${zone.name} is following a schedule, creating temperature override`);
 
-    // The Lennox API expects setpoints to be sent to a schedule, not directly to the zone
+    // Step 1: Create the override schedule with current zone settings plus new temps
+    const overrideData = {
+      schedules: [{
+        id: zone.getOverrideScheduleId(),
+        schedule: {
+          periods: [{
+            id: 0,
+            period: {
+              desp: zone.desp,
+              hsp: hsp,
+              hspC: hspC,
+              csp: csp,
+              cspC: cspC,
+              sp: zone.sp,
+              spC: zone.spC,
+              husp: zone.husp,
+              humidityMode: zone.humidityMode,
+              systemMode: zone.systemMode,
+              startTime: zone.startTime,
+              fanMode: zone.fanMode,
+            },
+          }],
+        },
+      }],
+    };
+
+    await this.publish(zone.systemId, overrideData as unknown as MessageData);
+
+    // Step 2: Enable the schedule hold to activate the override
+    await this.setScheduleHold(zone, true);
+  }
+
+  /**
+   * Update setpoints on a specific schedule
+   */
+  private async updateScheduleSetpoints(
+    systemId: string,
+    scheduleId: number,
+    setpoints: { hsp: number; hspC: number; csp: number; cspC: number },
+  ): Promise<void> {
+    this.log.debug(`Updating schedule ${scheduleId} setpoints: hsp=${setpoints.hsp}°F, csp=${setpoints.csp}°F`);
     const data = {
       schedules: [{
         id: scheduleId,
         schedule: {
           periods: [{
             id: 0,
-            period: period,
+            period: {
+              hsp: setpoints.hsp,
+              hspC: setpoints.hspC,
+              csp: setpoints.csp,
+              cspC: setpoints.cspC,
+            },
           }],
+        },
+      }],
+    };
+
+    await this.publish(systemId, data as unknown as MessageData);
+  }
+
+  /**
+   * Enable or disable schedule hold for a zone's override
+   */
+  async setScheduleHold(zone: LennoxZone, enabled: boolean): Promise<void> {
+    this.log.debug(`Setting schedule hold for zone ${zone.name} to ${enabled}`);
+
+    const data = {
+      zones: [{
+        id: zone.id,
+        config: {
+          scheduleHold: {
+            scheduleId: zone.getOverrideScheduleId(),
+            exceptionType: 'hold',
+            enabled: enabled,
+            expiresOn: '0',
+            expirationMode: 'nextPeriod',
+          },
         },
       }],
     };
@@ -705,13 +798,21 @@ export class LennoxS30Client {
 
   /**
    * Set fan mode for a zone
-   * This sends to the schedule (manual mode) as required by the Lennox API
+   * This sends to the appropriate schedule based on zone mode
    */
   async setFanMode(zone: LennoxZone, mode: string): Promise<void> {
     this.log.info(`Setting fan mode for zone ${zone.name} to ${mode}`);
 
-    // Use manual mode schedule ID
-    const scheduleId = this.getManualModeScheduleId(zone);
+    // Determine which schedule to target
+    let scheduleId: number;
+    if (zone.isZoneManualMode()) {
+      scheduleId = zone.getManualModeScheduleId();
+    } else if (zone.isZoneOverride()) {
+      scheduleId = zone.getOverrideScheduleId();
+    } else {
+      // Following a schedule - use manual mode (fan mode changes are less disruptive)
+      scheduleId = zone.getManualModeScheduleId();
+    }
 
     // The Lennox API expects mode changes to be sent to a schedule
     const data = {

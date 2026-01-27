@@ -81,8 +81,16 @@ export class WifiThermostatZone implements ThermostatZone {
   public temperature: number | null = null;
   public humidity: number | null = null;
   public hsp: number = 68;
+  public hspC: number = 20;
   public csp: number = 78;
+  public cspC: number = 25.5;
+  public sp: number = 73;
+  public spC: number = 22.5;
+  public husp: number = 40;
+  public desp: number = 50;
   public systemMode: string = LENNOX_HVAC_OFF;
+  public fanMode: string = 'auto';
+  public humidityMode: string = 'off';
   public tempOperation: string = LENNOX_TEMP_OPERATION_OFF;
 
   // Capabilities
@@ -90,6 +98,10 @@ export class WifiThermostatZone implements ThermostatZone {
   public coolingOption: boolean = true;
   public emergencyHeatingOption: boolean = false;
   public numberOfZones: number = 1;
+
+  // Schedule - Wifi thermostats are always in "manual mode" for our purposes
+  public scheduleId: number = 16;
+  public startTime: number = 0;
 
   constructor(gatewaySN: string, systemName: string, zoneNumber: number = 0) {
     this.systemId = gatewaySN;
@@ -106,6 +118,33 @@ export class WifiThermostatZone implements ThermostatZone {
     return this.temperature !== null;
   }
 
+  /** Get manual mode schedule ID for this zone */
+  getManualModeScheduleId(): number {
+    return 16 + this.id;
+  }
+
+  /** Get override schedule ID for this zone */
+  getOverrideScheduleId(): number {
+    return 32 + this.id;
+  }
+
+  /** Wifi thermostats are always considered in manual mode */
+  isZoneManualMode(): boolean {
+    return true;
+  }
+
+  /** Wifi thermostats don't have override mode */
+  isZoneOverride(): boolean {
+    return false;
+  }
+
+  /**
+   * Convert Fahrenheit to Celsius
+   */
+  private fToC(f: number): number {
+    return Math.round((f - 32) * 5 / 9 * 10) / 10;
+  }
+
   /**
    * Update zone from thermostat info response
    */
@@ -113,7 +152,9 @@ export class WifiThermostatZone implements ThermostatZone {
     this.temperature = info.Indoor_Temp;
     this.humidity = info.Indoor_Humidity;
     this.hsp = info.Heat_Set_Point;
+    this.hspC = this.fToC(info.Heat_Set_Point);
     this.csp = info.Cool_Set_Point;
+    this.cspC = this.fToC(info.Cool_Set_Point);
     this.name = info.Zone_Name || this.systemName;
 
     // Map Operation_Mode to systemMode

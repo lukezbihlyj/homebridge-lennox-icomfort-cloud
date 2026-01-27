@@ -41,11 +41,35 @@ export interface ThermostatZone {
   /** Heating setpoint in Fahrenheit */
   hsp: number;
 
+  /** Heating setpoint in Celsius */
+  hspC: number;
+
   /** Cooling setpoint in Fahrenheit */
   csp: number;
 
+  /** Cooling setpoint in Celsius */
+  cspC: number;
+
+  /** Single setpoint in Fahrenheit (for single setpoint mode) */
+  sp: number;
+
+  /** Single setpoint in Celsius (for single setpoint mode) */
+  spC: number;
+
+  /** Humidity setpoint */
+  husp: number;
+
+  /** Dehumidification setpoint */
+  desp: number;
+
   /** Current HVAC mode: 'off', 'heat', 'cool', 'heat and cool', 'emergency heat' */
   systemMode: string;
+
+  /** Current fan mode: 'auto', 'on', 'circulate' */
+  fanMode: string;
+
+  /** Current humidity mode: 'off', 'humidify', 'dehumidify' */
+  humidityMode: string;
 
   /** Current operation: 'off', 'heating', 'cooling' */
   tempOperation: string;
@@ -68,8 +92,26 @@ export interface ThermostatZone {
   /** Number of zones in the system */
   numberOfZones: number;
 
+  /** Current schedule ID the zone is following */
+  scheduleId: number;
+
+  /** Start time of current period */
+  startTime: number;
+
   /** Check if zone is active (has data) */
   isActive(): boolean;
+
+  /** Get manual mode schedule ID for this zone */
+  getManualModeScheduleId(): number;
+
+  /** Get override schedule ID for this zone */
+  getOverrideScheduleId(): number;
+
+  /** Check if zone is in manual mode */
+  isZoneManualMode(): boolean;
+
+  /** Check if zone is in override mode */
+  isZoneOverride(): boolean;
 }
 
 /**

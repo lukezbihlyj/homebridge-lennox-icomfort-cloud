@@ -303,7 +303,7 @@ export class Thermostat {
   private getActiveTargetTemperatureCelsius(): number {
     const mode = this.zone.systemMode;
 
-    if (mode === LENNOX_HVAC_HEAT) {
+    if (mode === LENNOX_HVAC_HEAT || mode === LENNOX_HVAC_EMERGENCY_HEAT) {
       return this.toCelsius(this.zone.hsp);
     } else if (mode === LENNOX_HVAC_COOL) {
       return this.toCelsius(this.zone.csp);
@@ -388,11 +388,10 @@ export class Thermostat {
   async setTargetTemperature(value: CharacteristicValue): Promise<void> {
     const tempC = value as number;
     const tempF = this.toFahrenheit(tempC);
+    const mode = this.zone.systemMode;
     this.logInfo(`Setting target temperature to ${tempF}°F (${tempC}°C)`);
 
     try {
-      const mode = this.zone.systemMode;
-
       if (mode === LENNOX_HVAC_OFF) {
         this.logDebug('System is off, not setting temperature');
         return;
@@ -406,7 +405,7 @@ export class Thermostat {
       // Mark command time for debounce
       this.lastCommandTime = Date.now();
 
-      if (mode === LENNOX_HVAC_HEAT) {
+      if (mode === LENNOX_HVAC_HEAT || mode === LENNOX_HVAC_EMERGENCY_HEAT) {
         // Ensure cooling setpoint stays above heating setpoint
         let csp = this.zone.csp;
         if (csp < tempF + 3) {
@@ -420,6 +419,8 @@ export class Thermostat {
           hsp = tempF - 3;
         }
         await this.platform.client.setTemperature(this.zone, { hsp, csp: tempF });
+      } else {
+        this.logDebug(`Unhandled mode: ${mode}, not setting temperature`);
       }
     } catch (error) {
       this.platform.log.error(`Failed to set temperature: ${error}`);

@@ -343,6 +343,10 @@ export class LennoxZone {
   public aux: boolean = false;
   public zoneEnabled: boolean = false;
 
+  // Schedule configuration
+  public scheduleId: number = 16;  // Default to manual mode schedule for zone 0
+  public startTime: number = 0;
+
   // Callbacks for updates
   private updateCallbacks: Array<() => void> = [];
 
@@ -438,6 +442,10 @@ export class LennoxZone {
       if (data.config.zoneEnabled !== undefined) {
         this.zoneEnabled = data.config.zoneEnabled === 1;
       }
+      // Track which schedule the zone is following
+      if (data.config.scheduleId !== undefined) {
+        this.scheduleId = data.config.scheduleId;
+      }
     }
 
     if (data.status) {
@@ -525,11 +533,44 @@ export class LennoxZone {
         if (data.status.period.desp !== undefined) {
           this.desp = data.status.period.desp;
         }
+        if (data.status.period.startTime !== undefined) {
+          this.startTime = data.status.period.startTime;
+        }
       }
     }
 
     // Notify listeners of update
     this.notifyUpdate();
+  }
+
+  /**
+   * Get the manual mode schedule ID for this zone
+   * Manual mode schedules start at 16: zone 0 = 16, zone 1 = 17, etc.
+   */
+  getManualModeScheduleId(): number {
+    return 16 + this.id;
+  }
+
+  /**
+   * Get the override schedule ID for this zone
+   * Override schedules start at 32: zone 0 = 32, zone 1 = 33, etc.
+   */
+  getOverrideScheduleId(): number {
+    return 32 + this.id;
+  }
+
+  /**
+   * Check if zone is in manual mode (using manual schedule)
+   */
+  isZoneManualMode(): boolean {
+    return this.scheduleId === this.getManualModeScheduleId();
+  }
+
+  /**
+   * Check if zone is in override mode (using override schedule)
+   */
+  isZoneOverride(): boolean {
+    return this.scheduleId === this.getOverrideScheduleId();
   }
 }
 
