@@ -27,13 +27,11 @@
         "title": "Email",
         "type": "string",
         "format": "email",
-        "required": true,
         "description": "Your iComfort account email address."
       },
       "password": {
         "title": "Password",
         "type": "string",
-        "required": true,
         "description": "Your iComfort account password."
       },
       "pollInterval": {
